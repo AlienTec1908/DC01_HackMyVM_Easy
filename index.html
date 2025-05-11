@@ -1,0 +1,734 @@
+﻿﻿﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DC01 - HackMyVM - Easy - Vulnhub - Bericht</title> <!-- Titel angepasst -->
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+    <!-- KEIN <style>-Block hier -->
+</head>
+ <body>
+ 
+    <div class="header-bg">
+        <h1>DC01 - HackMyVM - Easy - Vulnhub - Level: Easy - Bericht</h1> <!-- Titel angepasst -->
+        <div class="level-container">
+            <!-- Schwierigkeitsgrad-Überschrift und Kreis gemäß Template und CSS -->
+            <h2>Easy</h2> <!-- Nur der Text, Farbe kommt aus CSS -->
+            <div class="circle"> <!-- Keine zusätzlichen Klassen -->
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <div class="inner"></div> <!-- Hintergrundfarbe kommt aus CSS -->
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <!-- Hier die Liste der Tools als <div class="tool-item">Toolname</div> Elemente einfügen -->
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">vi</div>
+                <div class="tool-item">ping</div>
+                <div class="tool-item">enum4linux</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">grep</div>
+                <div class="tool-item">nikto</div>
+                <div class="tool-item">smbclient</div>
+                <div class="tool-item">nxc (NetExec)</div>
+                <div class="tool-item">cat</div>
+                <div class="tool-item">awk</div>
+                <div class="tool-item">cut</div>
+                <div class="tool-item">locate</div>
+                <div class="tool-item">GetUserSPNs.py (Impacket)</div>
+                <div class="tool-item">lookupsid.py (Impacket)</div>
+                <div class="tool-item">crackmapexec (Alias für nxc)</div>
+                <div class="tool-item">tr</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <!-- Hier die Links zum Inhaltsverzeichnis als <li><a href="#id-der-section">Abschnittsname</a></li> Elemente einfügen -->
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration</a></li>
+                <li><a href="#smb-enumeration">SMB/AD Enumeration</a></li>
+                <li><a href="#exploitation-attempts">Exploitation Attempts / Findings</a></li>
+                <li><a href="#conclusion">Conclusion</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <!-- Hier die Reconnaissance-Schritte einfügen, mit Kommentaren und Code-Blöcken -->
+            <p class="comment">Beginn der Erkundung mit einem ARP-Scan, um aktive Hosts im lokalen Netzwerk zu finden.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">arp-scan -l</span></div>
+                    <pre>
+192.168.2.114	08:00:27:a6:52:59	PCS Systemtechnik GmbH</pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** Der Befehl `arp-scan -l` sendet ARP-Anfragen ins lokale Netzwerk, um aktive Geräte zu identifizieren. Ein Host mit der IP-Adresse 192.168.2.114 wurde gefunden. Die MAC-Adresse 08:00:27:a6:52:59 und der Hersteller "PCS Systemtechnik GmbH" deuten stark auf eine VirtualBox-Instanz hin.</p>
+            <p class="evaluation">**Bewertung:** Erfolgreiche Identifizierung des Zielsystems im Netzwerk. Der Hinweis auf VirtualBox ist nützlich für das Kontextverständnis.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Fokussiere die weiteren Scans auf die IP 192.168.2.114.
+            <br>**Empfehlung (Admin):** Netzwerk-Monitoring implementieren, um Scans frühzeitig zu erkennen. Segmentierung kann die Sichtbarkeit von Hosts einschränken.</p>
+
+            <p class="comment">Hinzufügen eines Eintrags zur lokalen `/etc/hosts`-Datei zur einfacheren Ansprache des Ziels.</p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">vi /etc/hosts</span></div>
+                    <pre>
+
+127.0.0.1	localhost
+
+                192.168.2.114   dc01.hmv</pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** Mit `vi /etc/hosts` wird die lokale Hosts-Datei bearbeitet. Der IP-Adresse 192.168.2.114 wird der Hostname `dc01.hmv` zugewiesen. Dies erlaubt, das Zielsystem über diesen Namen statt der IP anzusprechen.</p>
+            <p class="evaluation">**Bewertung:** Praktische Maßnahme zur Verbesserung der Lesbarkeit und Handhabung von Befehlen während des Tests.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Nutze den definierten Hostnamen `dc01.hmv` in nachfolgenden Befehlen.
+            <br>**Empfehlung (Admin):** Dies ist eine lokale Konfiguration auf dem Angreifer-System und erfordert keine serverseitigen Maßnahmen.</p>
+
+            <p class="comment">Überprüfung der Erreichbarkeit des Ziels mittels Ping.</p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">ping 192.168.2.114</span></div>
+                    <pre>
+PING 192.168.2.114 (192.168.2.114) 56(84) bytes of data.
+64 bytes from 192.168.2.114: icmp_seq=1 ttl=128 time=0.309 ms
+64 bytes from 192.168.2.114: icmp_seq=2 ttl=128 time=0.254 ms
+64 bytes from 192.168.2.114: icmp_seq=3 ttl=128 time=0.246 ms
+64 bytes from 192.168.2.114: icmp_seq=4 ttl=128 time=0.196 ms</pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** Der Befehl `ping` sendet ICMP Echo Requests an das Ziel. Die Antworten bestätigen, dass der Host 192.168.2.114 erreichbar ist und antwortet. Die TTL (Time To Live) von 128 ist ein starker Indikator für ein Windows-Betriebssystem.</p>
+            <p class="evaluation">**Bewertung:** Bestätigt die Erreichbarkeit des Hosts und liefert einen ersten Hinweis auf das Betriebssystem (Windows).</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Ziel ist online. Starte detailliertere Port- und Service-Scans.
+            <br>**Empfehlung (Admin):** ICMP kann für Reconnaissance genutzt werden. Blockieren von ICMP an der Firewall kann die Erkennung erschweren, beeinträchtigt aber möglicherweise Netzwerkdiagnose-Tools.</p>
+
+            <p class="comment">Durchführung einer grundlegenden Windows/Samba-Enumeration mit `enum4linux`.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">enum4linux -a 192.168.2.114</span></div>
+                    <pre>
+Starting enum4linux v0.9.1 ( http://labs.portcullis.co.uk/application/enum4linux/ ) on Fri Aug  9 22:29:56 2024
+
+ =( Target Information )=
+
+Target ........... 192.168.2.114
+RID Range ........ 500-550,1000-1050
+Username ......... ''
+Password ......... ''
+Known Usernames .. administrator, guest, krbtgt, domain admins, root, bin, none
+
+
+ =( Enumerating Workgroup/Domain on 192.168.2.114 )=
+
+
+[+] Got domain/workgroup name: SUPEDECDE
+
+
+ =( Nbtstat Information for 192.168.2.114 )=
+
+Looking up status of 192.168.2.114
+	DC01            <00> -         B <ACTIVE>  Workstation Service
+	SUPEDECDE     <1c> - <GROUP> B <ACTIVE>  Domain Controllers
+	SUPEDECDE     <00> - <GROUP> B <ACTIVE>  Domain/Workgroup Name
+	DC01            <20> -         B <ACTIVE>  File Server Service
+	SUPEDECDE     <1b> -         B <ACTIVE>  Domain Master Browser
+
+	MAC Address = 08-00-27-A6-52-59
+
+ =( Session Check on 192.168.2.114 )=
+
+
+[E] Server doesn't allow session using username '', password ''.  Aborting remainder of tests.</pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** `enum4linux -a` führt eine Reihe von Enumerationstechniken gegen Windows/Samba-Systeme durch. Wichtige Erkenntnisse:
+            <ul>
+                <li>**Domain/Workgroup:** `SUPEDECDE` wurde identifiziert.</li>
+                <li>**NetBIOS-Namen:** Der Hostname ist `DC01`. Die Registrierungen `<1c>` (Domain Controllers) und `<1b>` (Domain Master Browser) bestätigen, dass es sich um einen Active Directory Domain Controller handelt.</li>
+                <li>**Null Session:** Der Versuch, Informationen über eine Null-Session (anonyme Verbindung) zu sammeln, schlug fehl (`Server doesn't allow session...`). Dies deutet auf eine grundlegende Sicherheitskonfiguration hin, die anonyme Enumeration verhindert.</li>
+            </ul></p>
+            <p class="evaluation">**Bewertung:** Sehr wichtige Ergebnisse. Die Bestätigung, dass es sich um einen Domain Controller (`DC01`) der Domain `SUPEDECDE` handelt, lenkt den Fokus auf Active Directory-spezifische Angriffe. Die Blockierung von Null Sessions ist eine positive Sicherheitsmaßnahme des Ziels, erfordert aber authentifizierte Enumeration.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Führe detaillierte Nmap-Scans durch, um offene AD-bezogene Ports (LDAP, Kerberos, SMB, RPC) zu identifizieren. Versuche authentifizierte Enumeration, falls gültige (auch niedrig privilegierte) Zugangsdaten gefunden werden (z.B. Guest).
+            <br>**Empfehlung (Admin):** Gut, dass Null Sessions blockiert sind. Überprüfe regelmäßig die AD-Konfiguration auf weitere Härtungsmöglichkeiten (z.B. LDAP-Signing/Sealing, SMB-Signing).</p>
+
+            <p class="comment">Durchführung eines umfassenden Nmap-Scans über alle Ports.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">nmap -sC -sS -sV -A -T5 192.168.2.114 -p-</span></div>
+                    <pre>
+Starting Nmap 7.94SVN ( https://nmap.org ) at 2024-08-09 22:28 CEST
+Nmap scan report for dc01.hmv (192.168.2.114)
+Host is up (0.00018s latency).
+Not shown: 65518 filtered tcp ports (no-response)
+PORT      STATE SERVICE       VERSION
+53/tcp    open  domain?
+88/tcp    open  kerberos-sec  Microsoft Windows Kerberos (server time: 2024-08-10 05:29:57Z)
+135/tcp   open  msrpc         Microsoft Windows RPC
+139/tcp   open  netbios-ssn   Microsoft Windows netbios-ssn
+389/tcp   open  ldap          Microsoft Windows Active Directory LDAP (Domain: SUPEDECDE.LCAL0., Site: Default-First-Site-Name)
+445/tcp   open  microsoft-ds?
+464/tcp   open  kpasswd5?
+593/tcp   open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
+636/tcp   open  tcpwrapped <!-- Vermutlich LDAPS -->
+3268/tcp  open  ldap          Microsoft Windows Active Directory LDAP (Domain: SUPEDECDE.LCAL0., Site: Default-First-Site-Name) <!-- Global Catalog -->
+3269/tcp  open  tcpwrapped <!-- Vermutlich LDAPS GC -->
+5985/tcp  open  http          Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP) <!-- WinRM HTTP -->
+|_http-title: Not Found
+|_http-server-header: Microsoft-HTTPAPI/2.0
+9389/tcp  open  mc-nmf        .NET Message Framing <!-- ADWS -->
+49664/tcp open  msrpc         Microsoft Windows RPC <!-- Dynamischer RPC Port -->
+49667/tcp open  msrpc         Microsoft Windows RPC <!-- Dynamischer RPC Port -->
+49680/tcp open  ncacn_http    Microsoft Windows RPC over HTTP 1.0 <!-- Dynamischer RPC Port -->
+49723/tcp open  msrpc         Microsoft Windows RPC <!-- Dynamischer RPC Port -->
+MAC Address: 08:00:27:A6:52:59 (Oracle VirtualBox virtual NIC)
+Warning: OSScan results may be unreliable because we could not find at least 1 open and 1 closed port
+Device type: general purpose
+Running (JUST GUESSING): Microsoft Windows 2022|11|2016 (95%)
+OS CPE: cpe:/o:microsoft:windows_server_2016
+Aggressive OS guesses: Microsoft Windows Server 2022 (95%), Microsoft Windows 11 21H2 (90%), Microsoft Windows Server 2016 (89%)
+No exact OS matches for host (test conditions non-ideal).
+Network Distance: 1 hop
+Service Info: Host: DC01; OS: Windows; CPE: cpe:/o:microsoft:windows
+
+Host script results:
+|_nbstat: NetBIOS name: DC01, NetBIOS user: <unknown>, NetBIOS MAC: 08:00:27:a6:52:59 (Oracle VirtualBox virtual NIC)
+| smb2-time:
+|   date: 2024-08-10T05:32:17
+|_  start_date: N/A
+|_clock-skew: 9h00m00s
+| smb2-security-mode:
+|   3.1.1:
+|_    Message signing enabled and required <!-- Wichtig: SMB Signing! -->
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.19 ms dc01.hmv (192.168.2.114)</pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** Ein detaillierter Nmap-Scan (`-sC` für Standard-Skripte, `-sS` für SYN-Scan, `-sV` für Versionserkennung, `-A` für OS/Version/Skript/Traceroute, `-T5` für hohe Geschwindigkeit, `-p-` für alle Ports) liefert folgende Ergebnisse:
+            <ul>
+                <li>**Offene Ports:** Eine typische Auswahl für einen Windows Domain Controller ist offen: 53 (DNS), 88 (Kerberos), 135 (RPC), 139 (NetBIOS), 389 (LDAP), 445 (SMB), 464 (Kerberos PW Change), 593 (RPC over HTTP), 636 (LDAPS - tcpwrapped), 3268 (LDAP Global Catalog), 3269 (LDAPS GC - tcpwrapped), 5985 (WinRM HTTP), 9389 (AD Web Services?), sowie diverse dynamische RPC-Ports (49xxx).</li>
+                <li>**Dienste:** Viele Dienste sind klar als Microsoft Windows / Active Directory-Komponenten identifiziert (Kerberos, LDAP, RPC). Der LDAP-Scan enthüllt den vollständigeren Domain-Namen `SUPEDECDE.LOCAL` (Achtung, im Enum4Linux-Scan fehlte ".LOCAL").</li>
+                <li>**WinRM:** Port 5985 (HTTP) ist offen und wird von `Microsoft-HTTPAPI/2.0` bedient, was auf WinRM hindeutet.</li>
+                <li>**SMB:** SMB-Signing ist aktiviert und erforderlich (`Message signing enabled and required`). Dies erschwert SMB-Relay-Angriffe erheblich.</li>
+                <li>**OS:** Nmap schätzt Windows Server 2016/2022.</li>
+                <li>**Warnung:** Nmap meldet, dass die OS-Scan-Ergebnisse unzuverlässig sein könnten, da nicht mindestens ein offener und ein geschlossener Port gefunden wurden (möglicherweise aufgrund einer Firewall, die nicht antwortet, statt Pakete aktiv abzulehnen).</li>
+            </ul></p>
+            <p class="evaluation">**Bewertung:** Hoch. Bestätigt die DC-Rolle und zeigt alle relevanten AD-Dienste. Der Domainname `SUPEDECDE.LOCAL` ist eine wichtige Information. Die SMB-Signing-Anforderung ist eine wichtige Sicherheitseinstellung. Die offenen Ports, insbesondere LDAP, Kerberos und SMB, sind die primären Angriffsvektoren in einer AD-Umgebung.</p>
+            <p class="recommendation">**Empfehlung (Pentester):**
+            1. Versuche, LDAP anonym oder als Gast zu enumerieren (Benutzer, Gruppen, Computer, GPOs).
+            2. Prüfe auf Kerberos-Schwachstellen (AS-REP Roasting, Kerberoasting - erfordert gültige Credentials).
+            3. Versuche, SMB-Shares zu enumerieren und auf zugängliche Shares zuzugreifen (insbesondere `backup`).
+            4. Notiere den vollständigen Domain-Namen `SUPEDECDE.LOCAL`.
+            <br>**Empfehlung (Admin):**
+            1. Stelle sicher, dass LDAP- und SMB-Signing aktiviert bleiben. Erwäge LDAP-Channel-Binding (LDAPS).
+            2. Beschränke den Zugriff auf Shares auf das notwendige Minimum.
+            3. Überwache AD-bezogene Dienste auf verdächtige Aktivitäten (z.B. fehlgeschlagene Logins, ungewöhnliche LDAP-Abfragen).
+            4. Halte den DC und alle AD-Komponenten gepatcht.</p>
+
+            <p class="comment">Erneuter Nmap-Scan, gefiltert auf offene Ports (zur Übersicht).</p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">nmap -sC -sS -sV -A -T5 192.168.2.114 -p- | grep open</span></div>
+                    <pre>
+53/tcp    open  domain        Simple DNS Plus
+88/tcp    open  kerberos-sec  Microsoft Windows Kerberos (server time: 2024-08-10 05:29:51Z)
+135/tcp   open  msrpc         Microsoft Windows RPC
+139/tcp   open  netbios-ssn   Microsoft Windows netbios-ssn
+389/tcp   open  ldap          Microsoft Windows Active Directory LDAP (Domain: SUPEDECDE.LCAL0., Site: Default-First-Site-Name)
+445/tcp   open  microsoft-ds?
+464/tcp   open  kpasswd5?
+593/tcp   open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
+636/tcp   open  tcpwrapped
+3268/tcp  open  ldap          Microsoft Windows Active Directory LDAP (Domain: SUPEDECDE.LCAL0., Site: Default-First-Site-Name)
+3269/tcp  open  tcpwrapped
+5985/tcp  open  http          Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)
+9389/tcp  open  mc-nmf        .NET Message Framing
+49664/tcp open  msrpc         Microsoft Windows RPC
+49667/tcp open  msrpc         Microsoft Windows RPC
+49680/tcp open  ncacn_http    Microsoft Windows RPC over HTTP 1.0
+49723/tcp open  msrpc         Microsoft Windows RPC</pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** Die gefilterte Ausgabe des Nmap-Scans listet übersichtlich alle offenen TCP-Ports auf. Interessanterweise identifiziert Nmap hier die DNS-Software auf Port 53 als "Simple DNS Plus", obwohl es sich um einen Microsoft DC handelt (wahrscheinlich eine Nmap-Fingerprint-Ungenauigkeit oder eine ungewöhnliche Konfiguration).</p>
+            <p class="evaluation">**Bewertung:** Bietet eine schnelle Referenz der offenen Ports. Die spezifische DNS-Software-Identifikation ist wahrscheinlich nicht korrekt, aber der Port selbst ist relevant.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Verwende diese Liste als Checkliste für die Enumeration der einzelnen Dienste.
+            <br>**Empfehlung (Admin):** Keine zusätzlichen Maßnahmen basierend auf dieser gefilterten Ansicht.</p>
+
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration</h2>
+            <p class="comment">Manuelle Überprüfung der Webseite auf Port 5985.</p>
+            <div class="code-block">
+                 <!-- Kein Terminal-Block, da dies eine Browser-Interaktion beschreibt -->
+                <pre>
+http://dc01.hmv:5985/
+Not Found
+
+HTTP Error 404. The requested resource is not found.</pre>
+            </div>
+            <p class="analysis">**Analyse:** Der direkte Aufruf der Adresse `http://dc01.hmv:5985/` im Browser resultiert in einem HTTP 404 Fehler ("Not Found").</p>
+            <p class="evaluation">**Bewertung:** Bestätigt, dass der Dienst auf Port 5985 (WinRM) keine Standard-Webseite bereitstellt und nicht für Browser-Interaktion gedacht ist.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Interaktion mit diesem Port sollte über WinRM-spezifische Tools erfolgen (z.B. `evil-winrm`), falls Zugangsdaten erlangt werden.
+            <br>**Empfehlung (Admin):** Dies ist das erwartete Verhalten für den WinRM-HTTP-Listener.</p>
+
+            <p class="comment">Scan des HTTP-Dienstes auf Port 5985 mit Nikto.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">nikto -h http://192.168.2.114:5985</span></div>
+                    <pre>
+- Nikto v2.5.0
+---------------------------------------------------------------------------
++ Target IP:          192.168.2.114
++ Target Hostname:    192.168.2.114
++ Target Port:        5985
++ Start Time:         2024-08-09 22:34:25 (GMT2)
+---------------------------------------------------------------------------
++ Server: Microsoft-HTTPAPI/2.0
++ /: The anti-clickjacking X-Frame-Options header is not present. See: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options
++ /: The X-Content-Type-Options header is not set. This could allow the user agent to render the content of the site in a different fashion to the MIME type. See: https://www.netsparker.com/web-vulnerability-scanner/vulnerabilities/missing-content-type-header/
++ No CGI Directories found (use '-C all' to force check all possible dirs)
++ 8101 requests: 0 error(s) and 2 item(s) reported on remote host
++ End Time:           2024-08-09 22:34:38 (GMT2) (13 seconds)
+---------------------------------------------------------------------------
++ 1 host(s) tested</pre>
+                </div>
+            </div>
+             <p class="analysis">**Analyse:** Nikto wird auf den WinRM-HTTP-Port (5985) angesetzt. Es identifiziert den Server als `Microsoft-HTTPAPI/2.0` und meldet zwei fehlende HTTP-Security-Header (`X-Frame-Options`, `X-Content-Type-Options`). Es findet keine weiteren Schwachstellen oder Verzeichnisse.</p>
+            <p class="evaluation">**Bewertung:** Niedrig. Die fehlenden Header sind auf einem Dienst wie WinRM, der nicht für Browser-Zugriff gedacht ist, von geringer praktischer Bedeutung. Keine ausnutzbaren Schwachstellen gefunden.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Die Ergebnisse bestätigen, dass dies wahrscheinlich WinRM ist und keine typische Webanwendung. Konzentriere dich auf andere Vektoren.
+            <br>**Empfehlung (Admin):** Das Hinzufügen der fehlenden Header ist optional und von geringer Priorität für diesen Dienst. Sicherstelle, dass WinRM selbst sicher konfiguriert ist.</p>
+
+        </section>
+
+        <section id="smb-enumeration">
+             <h2>SMB/AD Enumeration</h2>
+             <p class="comment">Versuch, SMB-Shares mit `smbclient` anonym aufzulisten.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">smbclient -L ////192.168.2.114</span></div>
+                     <pre>
+Password for [WORKGROUP\root]:
+
+	Sharename       Type      Comment
+	---------       ----      -------
+	ADMIN$          Disk      Remote Admin
+	backup          Disk      
+	C$              Disk      Default share
+	IPC$            IPC       Remote IPC
+	NETLOGON        Disk      Logon server share
+	SYSVOL          Disk      Logon server share
+	Users           Disk      
+Reconnecting with SMB1 for workgroup listing.</pre>
+                 </div>
+             </div>
+            <p class="analysis">**Analyse:** Der Befehl `smbclient -L //192.168.2.114` versucht, die verfügbaren SMB-Shares auf dem Ziel aufzulisten. Obwohl eine Passwortabfrage für `WORKGROUP\root` erscheint (was darauf hindeutet, dass eine Null-Session oder rein anonymer Zugriff nicht direkt funktionierte), werden die Shares dennoch aufgelistet. Dies könnte daran liegen, dass `smbclient` implizit einen Gastzugriff versucht oder es eine spezielle Konfiguration gibt. Die aufgelisteten Shares sind die Standard-Admin-Shares (`ADMIN$`, `C$`), Logon-Shares (`NETLOGON`, `SYSVOL`), der IPC-Share (`IPC$`), der Users-Share und ein benutzerdefinierter Share namens `backup`.</p>
+            <p class="evaluation">**Bewertung:** Wichtig. Bestätigt die Verfügbarkeit von SMB und listet Shares auf. Der `backup`-Share ist besonders interessant und sollte auf Zugriffsrechte und Inhalt geprüft werden. Das Verhalten bezüglich der Passwortabfrage ist etwas unklar, aber das Ergebnis (die Share-Liste) ist relevant.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Versuche, auf die einzelnen Shares zuzugreifen, insbesondere auf `backup` und `Users`. Teste anonymen Zugriff (`-N` Option) und Gastzugriff (`-U guest%`).
+            <br>**Empfehlung (Admin):** Überprüfe die Berechtigungen aller Shares. Stelle sicher, dass der `backup`-Share nur die minimal notwendigen Berechtigungen hat. Untersuche, warum `smbclient` trotz Passwortaufforderung die Shares auflisten konnte (evtl. Gastzugriff prüfen).</p>
+
+            <p class="comment">Verwendung von NetExec (nxc) zur grundlegenden SMB-Identifikation.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">nxc smb 192.168.2.114</span></div>
+                     <pre>
+[] First time use detected
+[] Creating home directory structure
+[] Creating missing folder logs
+[] Creating missing folder modules
+[] Creating missing folder protocols
+[] Creating missing folder workspaces
+[] Creating missing folder obfuscated_scripts
+[] Creating missing folder screenshots
+[] Creating default workspace
+[] Initializing WINRM protocol database
+[] Initializing RDP protocol database
+[] Initializing MSSQL protocol database
+[] Initializing LDAP protocol database
+[] Initializing FTP protocol database
+[] Initializing WMI protocol database
+[] Initializing SMB protocol database
+[] Initializing SSH protocol database
+[] Initializing VNC protocol database
+[] Copying default configuration file
+SMB         192.168.2.114   445    DC01             [] Windows Server 2022 Build 20348 x64 (name:DC01) (domain:SUPEDECDE.LCAL) (signing:True) (SMBv1:False)</pre>
+                 </div>
+             </div>
+            <p class="analysis">**Analyse:** `nxc smb 192.168.2.114` führt eine grundlegende SMB-Verbindung und Identifikation durch. Es bestätigt die von Nmap gefundenen Informationen: Windows Server 2022, Hostname `DC01`, Domain `SUPEDECDE.LOCAL`, SMB-Signing erforderlich (`signing:True`), SMBv1 deaktiviert (`SMBv1:False`). Die erstmaligen Einrichtungsmeldungen zeigen, dass `nxc` hier zum ersten Mal verwendet wird.</p>
+            <p class="evaluation">**Bewertung:** Bestätigt die Systeminformationen und wichtigen SMB-Parameter. Dient als Grundlage für weitere `nxc`-Module.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Nutze `nxc` für weitere Enumerationsschritte wie Share-Auflistung, Benutzer-Enumeration (RID-Brute), Passwort-Spraying.
+            <br>**Empfehlung (Admin):** Bestätigt die korrekte Konfiguration von SMB-Signing und die Deaktivierung von SMBv1.</p>
+
+            <p class="comment">Versuch, Shares mit `nxc` über eine Null-Session zu enumerieren.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">nxc smb 192.168.2.114  -u "" -p "" --shares</span></div>
+                    <pre>
+SMB         192.168.2.114   445    DC01             [] Windows Server 2022 Build 20348 x64 (name:DC01) (domain:SUPEDECDE.LCAL) (signing:True) (SMBv1:False)
+SMB         192.168.2.114   445    DC01             [-] SUPEDECDE.LCAL\: STATUS_ACCESS_DENIED
+SMB         192.168.2.114   445    DC01             [-] Error getting user: list index out of range
+SMB         192.168.2.114   445    DC01             [-] Error enumerating shares: Error occurs while reading from remote(104)</pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** `nxc` wird verwendet, um mit leeren Zugangsdaten (`-u "" -p ""`) die SMB-Shares aufzulisten (`--shares`). Dies schlägt fehl (`STATUS_ACCESS_DENIED` und weitere Fehler).</p>
+            <p class="evaluation">**Bewertung:** Bestätigt erneut, dass Null-Sessions für die Share-Enumeration auf diesem System nicht erlaubt sind, zumindest nicht über die von `nxc` verwendete Methode.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Versuche die Enumeration mit dem Gastkonto oder anderen potenziell niedrig privilegierten Konten.
+            <br>**Empfehlung (Admin):** Bestätigt, dass die Einschränkung von Null-Sessions wirksam ist.</p>
+
+            <p class="comment">Versuch, Shares mit `nxc` unter Verwendung des Gastkontos zu enumerieren.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">nxc smb 192.168.2.114 -u guest -p "" --shares</span></div>
+                     <pre>
+SMB         192.168.2.114   445    DC01             [] Windows Server 2022 Build 20348 x64 (name:DC01) (domain:SUPEDECDE.LCAL) (signing:True) (SMBv1:False)
+SMB         192.168.2.114   445    DC01             [+] SUPEDECDE.LCAL\guest:
+SMB         192.168.2.114   445    DC01             [] Enumerated shares
+SMB         192.168.2.114   445    DC01             Share           Permissions     Remark
+SMB         192.168.2.114   445    DC01             -----           -----------     ------
+SMB         192.168.2.114   445    DC01             ADMIN$                          Remote Admin
+SMB         192.168.2.114   445    DC01             backup
+SMB         192.168.2.114   445    DC01             C$                              Default share
+SMB         192.168.2.114   445    DC01             IPC$            READ            Remote IPC
+SMB         192.168.2.114   445    DC01             NETLOGON                        Logon server share
+SMB         192.168.2.114   445    DC01             SYSVOL                          Logon server share
+SMB         192.168.2.114   445    DC01             Users                           </pre>
+                 </div>
+             </div>
+            <p class="analysis">**Analyse:** Der gleiche `nxc`-Befehl wie zuvor, aber diesmal mit dem Benutzernamen `guest` und leerem Passwort (`-u guest -p ""`). Diesmal ist die Authentifizierung erfolgreich (`[+] SUPEDECDE.LCAL\guest:`), und die Shares werden aufgelistet. Die Liste ist identisch mit der von `smbclient` erhaltenen. Der Gast hat Lesezugriff auf `IPC$`.</p>
+            <p class="evaluation">**Bewertung:** Wichtig. Das Gastkonto ist aktiviert (oder erlaubt anonymen Zugriff, der als Gast behandelt wird) und kann zumindest Shares auflisten. Dies öffnet die Tür für weitere Enumerationstechniken, die mit Gast-Privilegien funktionieren könnten.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Nutze den Gastzugang für weitere Enumeration, insbesondere RID-Cycling (`--rid-brute`), um Benutzer und Gruppen zu finden. Versuche, auf die Shares (`backup`, `Users`) als Gast zuzugreifen.
+            <br>**Empfehlung (Admin):** Deaktiviere das Gastkonto im Active Directory, es sei denn, es gibt einen zwingenden Grund dafür. Standardmäßig sollte es deaktiviert sein.</p>
+
+            <p class="comment">Durchführung von RID-Cycling mit `nxc` unter Verwendung des Gastkontos, um Benutzer und Gruppen zu enumerieren.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">nxc smb 192.168.2.114 -u guest -p "" --rid-brute</span></div>
+                     <pre>
+SMB         192.168.2.114   445    DC01             [] Windows Server 2022 Build 20348 x64 (name:DC01) (domain:SUPEDECDE.LCAL) (signing:True) (SMBv1:False)
+SMB         192.168.2.114   445    DC01             [+] SUPEDECDE.LCAL\guest:
+SMB         192.168.2.114   445    DC01             498: SUPEDECDE\Enterprise Read-only Domain Controllers (SidTypeGroup)
+SMB         192.168.2.114   445    DC01             500: SUPEDECDE\Administrator (SidTypeUser)
+SMB         192.168.2.114   445    DC01             501: SUPEDECDE\Guest (SidTypeUser)
+SMB         192.168.2.114   445    DC01             502: SUPEDECDE\krbtgt (SidTypeUser)
+SMB         192.168.2.114   445    DC01             512: SUPEDECDE\Domain Admins (SidTypeGroup)</pre>
+                 </div>
+             </div>
+            <p class="analysis">**Analyse:** Mit `nxc` und den Gast-Zugangsdaten (`-u guest -p ""`) wird RID-Cycling (`--rid-brute`) durchgeführt. Dabei werden bekannte Relative Identifier (RIDs) durchprobiert, um die zugehörigen Security Identifier (SIDs) und damit Benutzer- und Gruppennamen aufzulösen. Die Ausgabe zeigt die erfolgreiche Identifizierung von Standard-Konten und -Gruppen wie Administrator, Guest, krbtgt und Domain Admins. Es ist wichtig anzumerken, dass diese Ausgabe im Log unvollständig erscheint, da die spätere `users.txt` deutlich mehr Benutzer enthält. Das Tool hat wahrscheinlich weiter gescannt, aber die Ausgabe wurde hier nicht vollständig erfasst oder wiedergegeben.</p>
+            <p class="evaluation">**Bewertung:** Erfolgreiche Enumeration von Benutzern und Gruppen mittels RID-Cycling, ermöglicht durch den Gastzugang. Dies liefert eine Liste potenzieller Ziele für weitere Angriffe, auch wenn die hier gezeigte Ausgabe unvollständig ist.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Sammle die vollständige Liste der gefundenen Benutzer (insbesondere `SidTypeUser`) aus der tatsächlichen Tool-Ausgabe oder den Logdateien für Passwort-Spraying oder andere Angriffe.
+            <br>**Empfehlung (Admin):** Deaktiviere das Gastkonto. Überwache SAMR-Protokollaktivitäten auf Anzeichen von RID-Cycling (obwohl dies schwierig zu blockieren ist, ohne die Funktionalität zu beeinträchtigen).</p>
+
+            <p class="comment">Verarbeitung der RID-Brute-Ausgabe (angenommen in `nxc.rid.txt`, obwohl die Logausgabe oben unvollständig war) zur Erstellung einer reinen Benutzerliste (`users.txt`).</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">cat nxc.rid.txt | grep SidTypeUser | awk '{print $6}' | cut -d "\\" -f 2 > users.txt</span></div>
+                     <pre><!-- Keine Ausgabe, da in Datei umgeleitet --></pre>
+                 </div>
+             </div>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">cat users.txt</span></div>
+                     <pre>
+Administrator
+Guest
+krbtgt
+DC01$
+bmark0
+otara1
+kleo2
+eyara3
+pquinn4
+jharper5
+bxenia6
+gmona7
+oaaron8
+pleo9
+evictor10
+wreed11
+bgavin12
+...
+...</pre>
+                 </div>
+             </div>
+            <p class="analysis">**Analyse:** Eine Befehlskette verarbeitet die (angenommene) vollständige Ausgabe des RID-Brute-Scans (`nxc.rid.txt`):
+            1. `cat nxc.rid.txt`: Gibt den Inhalt aus.
+            2. `grep SidTypeUser`: Filtert nach Zeilen, die Benutzerkonten beschreiben.
+            3. `awk '{print $6}'`: Extrahiert das sechste Feld, das den Domain\User-Namen enthält (z.B. `SUPEDECDE\Administrator`).
+            4. `cut -d "\\" -f 2`: Trennt den String am Backslash (`\`) und extrahiert das zweite Feld (den reinen Benutzernamen).
+            5. `> users.txt`: Leitet die Ausgabe in die Datei `users.txt` um.
+            `cat users.txt` zeigt die extrahierte Liste, die Standardbenutzer, das Computerkonto (`DC01$`) und eine große Anzahl von Benutzern mit einem Namensmuster enthält. Die Auslassungspunkte (`...`) deuten darauf hin, dass die Liste im Original-Log länger war.</p>
+            <p class="evaluation">**Bewertung:** Erfolgreiche Erstellung einer umfassenden Benutzerliste aus den (angenommenen vollständigen) Enumerationsergebnissen. Diese Liste ist wertvoll für nachfolgende Angriffe.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Verwende diese `users.txt`-Liste für Passwort-Spraying. Stelle sicher, dass die Liste vollständig ist.
+            <br>**Empfehlung (Admin):** Auditieren der Benutzerkonten. Gibt es einen Grund für dieses Namensmuster? Werden alle diese Konten benötigt? Deaktivieren oder löschen Sie nicht benötigte Konten.</p>
+
+        </section>
+
+        <section id="exploitation-attempts">
+             <h2>Exploitation Attempts / Findings</h2>
+
+            <p class="comment">Durchführung eines Passwort-Spraying-Angriffs mit `nxc`, bei dem versucht wird, sich für jeden Benutzer aus `users.txt` mit dem Benutzernamen als Passwort anzumelden.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">nxc smb 192.168.2.114 -u users.txt -p users.txt --no-brute</span></div>
+                     <pre>
+SMB         192.168.2.114   445    DC01             [-] SUPEDECDE.LCAL\PC-87$:PC-87$ STATUS_LOGIN_FAILURE
+SMB         192.168.2.114   445    DC01             [-] SUPEDECDE.LCAL\PC-88$:PC-88$ STATUS_LOGIN_FAILURE
+SMB         192.168.2.114   445    DC01             [-] SUPEDECDE.LCAL\PC-89$:PC-89$ STATUS_LOGIN_FAILURE
+SMB         192.168.2.114   445    DC01             [-] SUPEDECDE.LCAL\PC-90$:PC-90$ STATUS_LOGIN_FAILURE
+SMB         192.168.2.114   445    DC01             [-] SUPEDECDE.LCAL\firewall_svc:firewall_svc STATUS_LOGIN_FAILURE</pre>
+                 </div>
+             </div>
+            <p class="analysis">**Analyse:** `nxc` wird verwendet, um einen Passwort-Spray durchzuführen. Für jeden Benutzernamen in der Datei `users.txt` wird versucht, sich über SMB mit dem gleichen Benutzernamen als Passwort anzumelden (`-u users.txt -p users.txt`). Die Option `--no-brute` stellt sicher, dass pro Benutzer nur dieser eine Versuch unternommen wird, um Account-Lockouts zu vermeiden. Die gezeigte (gekürzte) Ausgabe enthält nur fehlgeschlagene Anmeldeversuche (`STATUS_LOGIN_FAILURE`). Es ist anzunehmen, dass viele weitere solcher Meldungen generiert wurden.</p>
+            <p class="evaluation">**Bewertung:** Zeigt, dass die einfache Taktik "Benutzername = Passwort" für die meisten Konten nicht funktioniert. Der Angriff selbst ist jedoch eine gängige Methode.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Filtere die Ausgabe, um nur Erfolge oder andere interessante Statusmeldungen anzuzeigen.
+            <br>**Empfehlung (Admin):** Implementiere starke Passwortrichtlinien und Account-Lockout-Mechanismen. Überwache fehlgeschlagene Anmeldeversuche, um Passwort-Spraying zu erkennen.</p>
+
+            <p class="comment">Filtern der Ausgabe des vorherigen Passwort-Spraying-Angriffs, um Erfolge oder interessante Meldungen zu finden.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">nxc smb 192.168.2.114 -u users.txt -p users.txt --no-brute | grep -v FAILURE</span></div>
+                    <pre>
+SMB                      192.168.2.114   445    DC01             [] Windows Server 2022 Build 20348 x64 (name:DC01) (domain:SUPEDECDE.LCAL) (signing:True) (SMBv1:False)
+SMB                      192.168.2.114   445    DC01             [-] SUPEDECDE.LCAL\ybob317:<span class="password">ybob317</span> STATUS_PASSWORD_EXPIRED</pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** Die Ausgabe des vorherigen `nxc`-Befehls wird durch `grep -v FAILURE` geleitet, wodurch alle Zeilen mit `STATUS_LOGIN_FAILURE` entfernt werden. Die verbleibende relevante Zeile zeigt, dass der Login-Versuch für den Benutzer `ybob317` mit dem Passwort `<span class="password">ybob317</span>` den Status `STATUS_PASSWORD_EXPIRED` zurückgab.</p>
+            <p class="evaluation">**Bewertung:** Wichtiger Fund! Dies bedeutet, dass die Zugangsdaten `ybob317`:`<span class="password">ybob317</span>` korrekt sind, das Passwort aber abgelaufen ist. Solche Konten können manchmal noch für bestimmte Aktionen (z.B. Kerberos Pre-Auth Abfragen) verwendet werden oder deuten auf vernachlässigte Konten hin.</p>
+            <p class="recommendation">**Empfehlung (Pentester):**
+            1. Versuche, diese Zugangsdaten für Kerberos-Angriffe wie AS-REP Roasting (`GetNPUsers.py`) oder Kerberoasting (`GetUserSPNs.py`) zu nutzen (obwohl letzteres bereits fehlschlug). Abgelaufene Passwörter funktionieren hier manchmal trotzdem oder liefern nützliche Informationen.
+            2. Versuche, auf SMB-Shares zuzugreifen (obwohl dies wahrscheinlich fehlschlägt, wie im nächsten Schritt getestet).
+            <br>**Empfehlung (Admin):** Überprüfe und deaktiviere umgehend Konten mit abgelaufenen Passwörtern, insbesondere wenn das Passwort identisch mit dem Benutzernamen ist. Setze Richtlinien zur regelmäßigen Überprüfung und Bereinigung von Benutzerkonten um.</p>
+
+            <p class="comment">Versuch, mit den abgelaufenen Zugangsdaten auf den `backup`-Share zuzugreifen.</p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">smbclient //192.168.2.114/backups -U "ybob317"</span></div>
+                    <pre>
+Password for [WORKGROUP\ybob317]:
+session setup failed: NT_STATUS_PASSWORD_EXPIRED</pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** `smbclient` wird verwendet, um auf den Share `//192.168.2.114/backups` mit dem Benutzernamen `ybob317` zuzugreifen. Nach Eingabe des (korrekten, aber abgelaufenen) Passworts `<span class="password">ybob317</span>` schlägt die Verbindung fehl mit `NT_STATUS_PASSWORD_EXPIRED`.</p>
+            <p class="evaluation">**Bewertung:** Bestätigt, dass das abgelaufene Passwort den Zugriff auf SMB-Shares verhindert.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Der direkte SMB-Zugriff mit diesen Credentials ist blockiert. Konzentriere dich auf Kerberos-basierte Angriffe oder suche nach anderen Wegen.
+            <br>**Empfehlung (Admin):** Bestätigt, dass die Passwortablauf-Richtlinie den Zugriff wie erwartet einschränkt.</p>
+
+            <p class="comment">Suchen des Impacket-Skripts `GetUserSPNs.py`.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">locate GetUserSPNs.py</span></div>
+                    <pre>
+/usr/share/doc/python3-impacket/examples/GetUserSPNs.py</pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** Der Befehl `locate` wird verwendet, um den Pfad zum Skript `GetUserSPNs.py` schnell zu finden. Es befindet sich im Beispielverzeichnis der Impacket-Installation.</p>
+            <p class="evaluation">**Bewertung:** Standardvorgehen zur Lokalisierung eines benötigten Werkzeugs.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Verwende den gefundenen Pfad, um das Skript auszuführen.
+            <br>**Empfehlung (Admin):** Keine Maßnahmen erforderlich.</p>
+
+            <p class="comment">Versuch, Kerberoasting mit den abgelaufenen Zugangsdaten durchzuführen.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">python3 /usr/share/doc/python3-impacket/examples/GetUserSPNs.py SUPEDECDE.LCAL/ybob317:<span class="password">ybob317</span> -dc-ip 192.168.2.114 -outputfile kerb.hashcat</span></div>
+                     <pre>
+Impacket v0.12.0.dev1 - Copyright 2023 Fortra
+
+[-] Error in bindRequest -> invalidCredentials: 8009030C: LdapErr: DSID-0C0906B0, comment: AcceptSecurityContext error, data 532, v4f7c</pre>
+                 </div>
+             </div>
+             <p class="analysis">**Analyse:** `GetUserSPNs.py` wird mit den Zugangsdaten `SUPEDECDE.LCAL/ybob317`:`<span class="password">ybob317</span>` und der IP des Domain Controllers (`-dc-ip 192.168.2.114`) ausgeführt. Ziel ist es, Service Principal Names (SPNs) im AD zu finden und die zugehörigen Kerberos Service Tickets (TGS) anzufordern, deren Hash dann offline geknackt werden kann (Kerberoasting). Der Versuch schlägt jedoch mit einem `invalidCredentials` Fehler während der LDAP-Bindung fehl.</p>
+            <p class="evaluation">**Bewertung:** Das abgelaufene Passwort verhindert auch die für Kerberoasting notwendige initiale Authentifizierung (vermutlich über LDAP, um SPNs zu suchen). Dieser Angriffsvektor ist mit diesen Credentials ebenfalls blockiert.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Die Credentials `ybob317`:`<span class="password">ybob317</span>` scheinen für die meisten Standardangriffe aufgrund des Ablaufs unbrauchbar. Versuche AS-REP Roasting (`GetNPUsers.py SUPEDECDE.LCAL/ybob317 -no-pass -dc-ip 192.168.2.114`), falls für den Benutzer keine Kerberos Pre-Authentication erforderlich ist. Ansonsten müssen andere Schwachstellen oder Credentials gefunden werden.
+            <br>**Empfehlung (Admin):** Gut, dass das abgelaufene Passwort Kerberoasting verhindert. Stelle sicher, dass Kerberos Pre-Authentication für alle Benutzerkonten aktiviert ist, wo immer möglich.</p>
+
+            <p class="comment">Fehlgeschlagener Versuch, auf einen Share der *falschen* Maschine zuzugreifen.</p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">smbclient //192.168.2.116/Users</span></div> <!-- Falsche IP! -->
+                    <pre>
+Password for [WORKGROUP\root]:
+Try "help" to get a list of possible commands.
+smb: \> dir
+NT_STATUS_ACCESS_DENIED listing \
+smb: \> ls
+NT_STATUS_ACCESS_DENIED listing \
+smb: \> dir
+NT_STATUS_ACCESS_DENIED listing \
+smb: \></pre>
+                </div>
+            </div>
+            <p class="analysis">**Analyse:** Es wird versucht, auf den `Users`-Share der IP-Adresse 192.168.2.116 zuzugreifen. Dies ist die IP des Ziels aus dem vorherigen Bericht (`Crack`), nicht des aktuellen Ziels (`DC01` - 192.168.2.114). Der Zugriff wird verweigert (`NT_STATUS_ACCESS_DENIED`).</p>
+            <p class="evaluation">**Bewertung:** Irrelevant für den aktuellen Test, da die falsche Ziel-IP verwendet wurde. Wahrscheinlich ein Fehler beim Kopieren/Einfügen.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Achte darauf, immer die korrekte Ziel-IP (192.168.2.114) zu verwenden.
+            <br>**Empfehlung (Admin):** Keine Maßnahmen erforderlich.</p>
+
+            <p class="comment">Erneute SID-Enumeration mit `lookupsid.py` unter Verwendung anonymer Bindung.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">python3 /usr/share/doc/python3-impacket/examples/lookupsid.py 'soupedecode.local/anonymous@dc01.hmv'</span></div> <!-- Korrekter Domainname -->
+                     <pre>
+Impacket v0.12.0.dev1 - Copyright 2023 Fortra
+
+Password:
+[] Brute forcing SIDs at dc01.hmv
+[] StringBinding ncacn_np:dc01.hmv[\pipe\lsarpc]
+[] Domain SID is: S-1-5-21-2986980474-46765180-2505414164
+498: SUPEDECDE\Enterprise Read-only Domain Controllers (SidTypeGroup)
+500: SUPEDECDE\Administrator (SidTypeUser)
+501: SUPEDECDE\Guest (SidTypeUser)
+502: SUPEDECDE\krbtgt (SidTypeUser)
+512: SUPEDECDE\Domain Admins (SidTypeGroup)
+513: SUPEDECDE\Domain Users (SidTypeGroup)</pre>
+                 </div>
+             </div>
+             <p class="analysis">**Analyse:** `lookupsid.py` wird verwendet, um erneut SIDs über eine anonyme Bindung (`SUPEDECDE.local/anonymous`) zu enumerieren. Es bestätigt die Domain-SID und listet die gleichen Standard-Benutzer und -Gruppen wie zuvor auf.</p>
+            <p class="evaluation">**Bewertung:** Bestätigt, dass anonyme SID-Enumeration möglich ist. Liefert aber keine neuen Informationen gegenüber dem vorherigen RID-Brute mit `nxc`.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Diese Methode liefert keine neuen Erkenntnisse. Konzentriere dich auf andere Vektoren.
+            <br>**Empfehlung (Admin):** Bestätigt erneut, dass anonyme Enumeration (vermutlich via Gastkonto) möglich ist. Gastkonto deaktivieren.</p>
+
+            <p class="comment">Erneuter Passwort-Spray mit `crackmapexec` (altes `nxc`) und einer unklaren Userlist `u1.txt`, gefiltert.</p>
+            <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">crackmapexec smb dc01.hmv -u u1.txt -p u1.txt --continue-on-success --no-bruteforce | grep -v STATUS_LOGIN_FAILURE</span></div>
+                     <pre>
+SMB                      dc01.hmv        445    DC01             [] Windows Server 2022 Build 20348 x64 (name:DC01) (domain:SUPEDECDE.LCAL) (signing:True) (SMBv1:False)
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\┌──(root㉿CCat)-[~]:┌──(root㉿CCat)-[~]
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\└─# cat users.txt | awk '{print $2}' | tr "\\" " " | awk '{print $2}':└─# cat users.txt | awk '{print $2}' | tr "\\" " " | awk '{print $2}'
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\tr: Warnung: Rückschrägstrich (\) ohne Fluchtzeichen am Ende der Zeichenkette ist nicht portabel:tr: Warnung: Rückschrägstrich (\) ohne Fluchtzeichen am Ende der Zeichenkette ist nicht portabel
+SMB                      dc01.hmv        445    DC01             [-] SUPEDECDE.LCAL\: STATUS_ACCESS_DENIED
+SMB                      dc01.hmv        445    DC01             [-] SUPEDECDE.LCAL\: STATUS_ACCESS_DENIED
+SMB                      dc01.hmv        445    DC01             [-] SUPEDECDE.LCAL\: STATUS_ACCESS_DENIED
+SMB                      dc01.hmv        445    DC01             [-] SUPEDECDE.LCAL\: STATUS_ACCESS_DENIED
+SMB                      dc01.hmv        445    DC01             [-] SUPEDECDE.LCAL\: STATUS_ACCESS_DENIED
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Enterprise:Enterprise
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Domain:Domain
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Domain:Domain
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Domain:Domain
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Domain:Domain
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Domain:Domain
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Cert:Cert
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Schema:Schema
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Enterprise:Enterprise
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Group:Group
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Read-only:Read-only
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Cloneable:Cloneable
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Protected:Protected
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Key:Key
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Enterprise:Enterprise
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\RAS:RAS
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Allowed:Allowed
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\Denied:Denied
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\DnsAdmins:DnsAdmins
+SMB                      dc01.hmv        445    DC01             [+] SUPEDECDE.LCAL\DnsUpdateProxy:DnsUpdateProxy
+SMB                      dc01.hmv        445    DC01             [-] SUPEDECDE.LCAL\ybob317:<span class="password">ybob317</span> STATUS_PASSWORD_EXPIRED
+SMB                      dc01.hmv        445    DC01             [-] SUPEDECDE.LCAL\: STATUS_ACCESS_DENIED</pre>
+                 </div>
+             </div>
+            <p class="analysis">**Analyse:** Erneuter Passwort-Spray, diesmal mit `crackmapexec` (CME, ein Fork/Nachfolger von NetExec) und einer Datei `u1.txt`. Die Ausgabe, gefiltert um Fehlschläge auszublenden, zeigt viele merkwürdige "erfolgreiche" Logins (`[+]`), bei denen Teile von Befehlen oder Gruppennamen als Benutzername und Passwort verwendet werden. Dies sind sehr wahrscheinlich Falsch-Positive, verursacht durch Parsing-Fehler von CME oder ungewöhnliche Antworten des Servers, möglicherweise weil `u1.txt` ungültige Einträge enthielt. Der einzige plausible Treffer ist erneut `ybob317` mit `STATUS_PASSWORD_EXPIRED`.</p>
+            <p class="evaluation">**Bewertung:** Niedrig. Die meisten angezeigten Erfolge sind unglaubwürdig. Bestätigt nur den Fund des abgelaufenen Kontos `ybob317`. Der Inhalt der Datei `u1.txt` ist unklar und führte zu fehlerhaften Ergebnissen.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Verlasse dich nicht auf die Falsch-Positiven. Der einzige verwertbare Hinweis bleibt `ybob317`. Überprüfe den Inhalt von `u1.txt`, um die Ursache der seltsamen Ergebnisse zu verstehen. Verwende die zuvor erstellte `users.txt` für konsistentere Ergebnisse.
+            <br>**Empfehlung (Admin):** Keine direkten Maßnahmen erforderlich, da keine validen neuen Credentials gefunden wurden. Die Falsch-Positiven könnten auf ungewöhnliche Serverantworten hindeuten, was eine tiefere Analyse erfordern würde, aber wahrscheinlicher ist ein Tool-Problem oder eine fehlerhafte Input-Datei (`u1.txt`).</p>
+
+            <p class="comment">Erneuter fehlgeschlagener Versuch, auf einen Share der *falschen* Maschine zuzugreifen.</p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">┌──(root㉿CCat)-[~]
+└─# <span class="command">smbclient //192.168.2.116/Users -U ybob317</span></div> <!-- Falsche IP! -->
+                     <pre>
+Password for [WORKGROUP\ybob317]:
+session setup failed: NT_STATUS_PASSWORD_EXPIRED</pre>
+                 </div>
+             </div>
+             <p class="analysis">**Analyse:** Identisch zum vorherigen `smbclient`-Fehler: Es wird versucht, auf die IP 192.168.2.116 (falsches Ziel) mit den abgelaufenen `ybob317`-Credentials zuzugreifen. Scheitert erwartungsgemäß.</p>
+            <p class="evaluation">**Bewertung:** Irrelevant.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Korrekte IP verwenden.
+            <br>**Empfehlung (Admin):** Keine Maßnahmen erforderlich.</p>
+
+        </section>
+
+        <section id="conclusion">
+            <h2>Conclusion</h2>
+             <p class="comment">Zusammenfassende Feststellung des Pentesters basierend auf den durchgeführten Schritten.</p>
+            <div class="code-block">
+                <!-- Kein Terminal-Block, dies ist eine Schlussfolgerung -->
+                <pre>
+Box ist passwort am server abgelaufen was mich daran hindert hier weiter zu machen</pre>
+            </div>
+            <p class="analysis">**Analyse:** Der Pentester kommt zu dem Schluss, dass der weitere Fortschritt durch das abgelaufene Passwort des einzigen gefundenen potenziell schwachen Kontos (`ybob317`) blockiert wird.</p>
+            <p class="evaluation">**Bewertung:** Basierend auf den dokumentierten Schritten ist dies eine plausible Schlussfolgerung. Es wurden keine anderen direkten Angriffsvektoren (wie unauthentifizierter Zugriff auf Shares, ausnutzbare Web-Lücken, funktionierende schwache Passwörter) identifiziert. Die Kerberos-Angriffe mit den abgelaufenen Credentials schlugen fehl.</p>
+            <p class="recommendation">**Empfehlung (Pentester):** Der Test scheint an dieser Stelle festzustecken. Mögliche nächste Schritte wären:
+                <ul>
+                    <li>Tiefere LDAP-Enumeration (anonym/Gast), Suche nach sensiblen Informationen in Beschreibungsfeldern, Gruppenmitgliedschaften etc.</li>
+                    <li>Prüfung auf AS-REP Roasting für *alle* gefundenen Benutzer (insbesondere `ybob317`).</li>
+                    <li>Erneute Prüfung des `backup`-Shares: Wurde versucht, als Gast darauf zuzugreifen? `smbclient //192.168.2.114/backup -U guest%` oder `smbclient //192.168.2.114/backup -N`.</li>
+                    <li>Suche nach bekannten Schwachstellen in den spezifischen Versionen der Dienste (obwohl Nmap keine direkten Hinweise lieferte).</li>
+                    <li>Versuch komplexerer Passwort-Sprays mit gängigen Passwörtern (z.B. 'Password123', 'Welcome1', Saison+Jahr) statt nur dem Benutzernamen.</li>
+                </ul>
+            <br>**Empfehlung (Admin):** Obwohl der Angriff hier blockiert wurde, zeigt der Test Schwachstellen auf:
+                <ul>
+                    <li>Das Gastkonto ist aktiv und erlaubt Enumeration. -> Deaktivieren.</li>
+                    <li>Ein Konto (`ybob317`) existiert mit einem Passwort = Benutzername (obwohl abgelaufen). -> Bereinigen/Deaktivieren, Passwortrichtlinien durchsetzen.</li>
+                    <li>Ein benutzerdefinierter `backup`-Share existiert. -> Berechtigungen und Notwendigkeit prüfen.</li>
+                </ul>
+                Das abgelaufene Passwort hat hier Schlimmeres verhindert, aber die zugrundeliegenden Probleme sollten behoben werden.</p>
+        </section>
+
+        <!-- Flags Section -->
+        <section id="flags">
+            <div class="flag-container">
+                <h2 class="flag-heading">Flags</h2>
+                <p class="comment">Anmerkung: Der Zugriff auf das System zur Erlangung dieser Flags wurde in den obigen Logs nicht erfolgreich dokumentiert. Die Flags wurden vermutlich auf anderem Wege oder zu einem späteren Zeitpunkt erlangt.</p>
+                <div class="flag-entry">
+                    <!-- Befehl nicht im Log, Annahme: Standardpfad -->
+                    <div class="flag-command">type C:\Users\*\Desktop\user.txt</div> <!-- Windows-Befehl -->
+                    <div class="flag-value"><span class="password">6bab1f09a7403980bfeb4c2b412be47b</span></div>
+                </div>
+                <div class="flag-entry">
+                    <!-- Befehl nicht im Log, Annahme: Standardpfad -->
+                    <div class="flag-command">type C:\Users\Administrator\Desktop\root.txt</div> <!-- Windows-Befehl -->
+                    <div class="flag-value"><span class="password">a9564ebc3289b7a14551baf8ad5ec60a</span></div>
+                </div>
+            </div>
+        </section>
+ 
+
+    <footer class="footer">
+        <p>DarkSpirit - Cyber Security Reports</p>
+        <!-- Datum aus den Logs extrahiert -->
+        <p>Berichtsdatum: 9. August 2024</p>
+    </footer>
+</body>
+</html>
